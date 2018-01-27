@@ -1,0 +1,73 @@
+rm(list=ls())
+# Use RStudio to import bank-data.csv, load strings as factors, save in bm.raw
+bm.raw = read.csv(file.choose())
+#exploring the file
+str(bm.raw)  
+#note that ID is not needed, age and income need to be discretized, 
+#  and children should be a factor
+summary(bm.raw)
+#rm(bank.data)
+
+which(bm.raw$age>50)
+#bm.raw[which(bm.raw$age>50),]
+
+# now we will pre-process some data
+bm = bm.raw # bm will be transformed dataframe
+# discretize age into three level factor
+bm$age = cut(bm$age, breaks=c(-Inf, 36, 48, Inf), labels=c("young","mid","old")) #since we know the mix and max
+summary(bm$age)
+#
+#same with income
+bm$income = cut(bm$income, breaks=c(0, 20000, 30000, Inf), labels=c("low","mid","hi")) 
+summary(bm$income)
+# last convert children from integer to factor
+bm$children = as.factor(bm$children)
+summary(bm$children)
+
+#now let us save the cleaned up file into bm.Rda
+write.csv(bm, 'cleanedBM.csv')
+
+#now split the data into testing and training data sets
+# we will first randomly select 2/3 of the rows
+set.seed(345) # for reproduceable results. The seed makes the random sample the same across board
+train = sample(1:nrow(bm),nrow(bm)*0.667) # replace=F by default
+
+# Use the train index set to split the dataset
+#  bm.train for building the model
+#  bm.test to test the model
+bm.train = bm[train,]   # 400 rows
+bm.test = bm[-train,]   # the other 200 rows
+
+#now build the model
+# first load package rpart
+library(rpart)
+fit = rpart(ira ~ ., 
+            data=bm.train, method="class",
+            control=rpart.control(xval=0, minsplit=5), 
+            parms=list(split="information"))
+# plot tree 
+plot(fit, uniform=TRUE, branch=0.5, 
+     main="Classification Tree for Marketing", margin=0.1)
+text(fit,  use.n=TRUE, pretty=T, cex=0.6)
+
+# extract the vector of predicted values for IRA for every row
+ira.pred = predict(fit, bm.train, type="class")
+# extract the actual value of ira for every row
+ira.actual = bm.train[,"ira"]
+
+# now make a contingency table of actual versus predicted
+# this is called the confusion matrix
+confusion.matrix = table(ira.actual, ira.pred)
+confusion.matrix
+
+#now let us use the hold out data in bm.test
+ira.pred = predict(fit,bm.test, type="class")
+ira.actual = bm.test[,"ira"]
+confusion.matrix = table(ira.actual, ira.pred)
+confusion.matrix
+
+nrow(which(bm$ira=="Yes"))
+length(which(bm$ira=="YES"))
+length(which(bm$ira=="NO"))
+
+which(bm$ira=="YES")
